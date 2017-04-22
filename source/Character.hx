@@ -19,20 +19,17 @@ class Character extends FlxSprite
 	public var emitter:FlxEmitter;
 	
 	private var replay:MyReplay;
-	private var humanControlled:Bool;
-	public function new(?X:Float=0, ?Y:Float=0, ?SimpleGraphic:FlxGraphicAsset) 
+	public var isHumanControlled:Bool;
+	public function new(?X:Float=0, ?Y:Float=0, ?graphic:FlxGraphicAsset="assets/images/stickman.png") 
 	{
 		super(X, Y);
 		
-		loadGraphic("assets/images/stickman.png", true, 32, 32);
+		loadGraphic(graphic, true, 32, 32);
 		animation.add("idle", [4, 5, 6, 7]);
 		animation.add("walk_right", [0, 1, 2, 3]);
 		animation.add("walk_left", [0, 1, 2, 3], 30, true, true);
 		animation.play("idle");
-		acceleration.y = GRAVITY;
-		setSize(16, 16);
-		offset.set(8, 16);
-		
+		acceleration.y = GRAVITY;	
 	}
 	
 	public function enableHumanControl()
@@ -40,7 +37,7 @@ class Character extends FlxSprite
 		keys = FlxG.keys;
 		mouse = FlxG.mouse;
 		
-		humanControlled = true;
+		isHumanControlled = true;
 	}
 	
 	public function setReplay(mReplay:MyReplay)

@@ -6,33 +6,28 @@ import flixel.FlxSprite;
 import flixel.FlxState;
 import flixel.addons.editors.ogmo.FlxOgmoLoader;
 import flixel.effects.particles.FlxEmitter;
+import flixel.group.FlxGroup;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.system.replay.FlxReplay;
 import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.math.FlxMath;
 
-typedef EntityId = {
-	var name:String;
-	var id:Int;
-}
 class PlayState extends FlxState
 {
 	var player:Character;
 	var walls:flixel.tile.FlxTilemap;
 	var map:FlxOgmoLoader;
 	var loveEmitters:FlxTypedGroup<FlxEmitter>;
-	
+	var goal:FlxSprite;
+	var playables:flixel.group.FlxGroup;
 	
 	static var recording:Bool;
-	static var records:Map<String,MyReplay> = new Map<String,MyReplay>();
+	static var records:Map<Int,MyReplay> = new Map<Int,MyReplay>();
 	static var currentEntityId:Int = 0;
-	static var entityIncarnationOrder:Array<EntityId> = [
-		{name:"player", id:0},
-		{name:"player",id:2},
-		{name:"player",id:1},
-		{name:"player",id:3}	
+	static var entityIncarnationOrder:Array<Int> = [0,1,2,3,4
 	];
+	
 	override public function create():Void
 	{
 		super.create();
@@ -47,6 +42,8 @@ class PlayState extends FlxState
 		add(walls);
 		
 		trace("create");
+		playables = new FlxGroup();
+		add(playables);
 		map.loadEntities(placeEntity, "entities");
 		
 		loveEmitters = new FlxTypedGroup<FlxEmitter>();
@@ -68,27 +65,44 @@ class PlayState extends FlxState
 		var id:Int = Std.parseInt(data.get("id"));
 		
 		var current = entityIncarnationOrder[currentEntityId];
-		var p:Character = new Character();
-		if (name == "player")
+	
+		trace(name.substr(0, 2));
+		if (name.substr(0,2) == "pl")
 		{
-			trace("player placed at " + x + "," + y);
-			p.x = x;
-			p.y = y;
-			add(p);
-		}
-		
-		if (name == current.name && id == current.id)
-		{
-			p.enableHumanControl();
-			FlxG.camera.follow(p);
-		}else{
-			if (records.exists(name+id))
+			trace("playable");
+			var p:Character = null;
+			if (name == "pl_player")
 			{
-				trace("RECORD FOUND FOR " + name+id);
-				p.setReplay(records.get(name+id));
+				p = new Character();
+				trace("player placed at " + x + "," + y);
+				p.x = x;
+				p.y = y;
+			}else if (name == "pl_shrimp")
+			{
+				p = new Shrimp(x, y);
+
 			}
-		}
+			playables.add(p);
 		
+			
+			if (id == current)
+			{
+				p.enableHumanControl();
+				FlxG.camera.follow(p);
+			}else{
+				if (records.exists(id))
+				{
+					trace("RECORD FOUND FOR " + id);
+					p.setReplay(records.get(id));
+				}
+			}
+			
+		}else if (name == "ballotbox")
+		{
+			var b  = new BallotBox(x, y);
+			goal = b;
+			add(b);
+		}	
 	}
 	
 	function saveReplay()
@@ -98,24 +112,50 @@ class PlayState extends FlxState
 		var current = entityIncarnationOrder[currentEntityId];
 		var mr = new MyReplay();
 		mr.load(record);
-		trace("SAVING RECORD AT:" + current.name+current.id);
-		records.set(current.name+current.id, mr);
+		trace("SAVING RECORD AT:" + current);
+		records.set(current, mr);
 	}
 	
 	function incarnateNextEntity()
 	{
+		trace("incarnateNextEntity");
 		saveReplay();
 		currentEntityId++;
 		FlxG.resetState();
+		//destroy();
 	}
 
 	override public function update(elapsed:Float):Void
 	{
 		super.update(elapsed);
 		
+		FlxG.overlap(playables, goal, onPlayableReachGoal);
 		FlxG.collide(player, walls);
 		checkInputs();
 		
+	}
+	
+	function onPlayableReachGoal(playable:Character,g:FlxSprite) 
+	{
+		if (playable.isHumanControlled)
+		{
+			/**
+			 * check for win or incarnate next fish
+			 */
+			if (currentEntityId + 1 == entityIncarnationOrder.length)
+			{
+				trace("SUCCESS");
+				FlxG.vcr.stopRecording(false);
+				recording = false;
+				success();
+			}else
+				incarnateNextEntity();
+		}
+	}
+	
+	function success() 
+	{
+		FlxG.switchState(new WinState());
 	}
 	
 	function checkInputs() 
