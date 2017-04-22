@@ -12,6 +12,8 @@ import flixel.system.replay.FlxReplay;
 import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.math.FlxMath;
+import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 
 class PlayState extends FlxState
 {
@@ -20,17 +22,34 @@ class PlayState extends FlxState
 	var map:FlxOgmoLoader;
 	var loveEmitters:FlxTypedGroup<FlxEmitter>;
 	var goal:FlxSprite;
-	var playables:flixel.group.FlxGroup;
+	var playables:FlxGroup;
+	var hostileDecorations:FlxGroup;
+	var explosionsEmitters:FlxTypedGroup<FlxEmitter>;
+	var currentHeart:FlxObject;
 	
 	static var recording:Bool;
 	static var records:Map<Int,MyReplay> = new Map<Int,MyReplay>();
+	static var lives:Int = 3;
+	static public var score:Int = 0;
 	static var currentEntityId:Int = 0;
-	static var entityIncarnationOrder:Array<Int> = [0,1,2,3,4
+	static var entityIncarnationOrder:Array<Int> = [2,4,28,24,25,27,23,3,17,21,22,20,19,18,0,1
 	];
+	var scoreText:flixel.text.FlxText;
+	
+	static public function resetRecords()
+	{
+		recording = false;
+		records = new Map<Int,MyReplay>();
+		currentEntityId = 0;
+		lives = 3;
+		score = 0;
+	}
 	
 	override public function create():Void
 	{
 		super.create();
+		
+		FlxG.sound.playMusic(AssetPaths.theme__ogg,.5);
 		
 		FlxG.worldBounds.set(0, 0, 2000, 2000);
 		
@@ -44,18 +63,46 @@ class PlayState extends FlxState
 		trace("create");
 		playables = new FlxGroup();
 		add(playables);
+		
+		hostileDecorations = new FlxGroup();
+		add(hostileDecorations);
+		
+		
 		map.loadEntities(placeEntity, "entities");
 		
 		loveEmitters = new FlxTypedGroup<FlxEmitter>();
 		add(loveEmitters);
 		
 		//emitLove(player);
+		explosionsEmitters = new FlxTypedGroup<FlxEmitter>();
+		add(explosionsEmitters);
+		
+		createLiveHud();
+		createScoreHud();
 		
 		if (!recording)
 		{
 			FlxG.vcr.startRecording(false);
 			recording = true;
 		}
+	}
+	
+	function createLiveHud()
+	{
+		for (i in 0...lives)
+		{
+			currentHeart= new FlxSprite(10 + i * 35, 10, AssetPaths.heart__png);
+			currentHeart.scrollFactor.set(0, 0);
+			add(currentHeart);
+		}
+	}
+	
+	function createScoreHud()
+	{
+		scoreText = new flixel.text.FlxText(0, 0, 0, "SCORE\n" + StringTools.lpad(Std.string(score), "0", 5), 12);
+		scoreText.scrollFactor.set(0, 0);
+		scoreText.x = FlxG.width - scoreText.width - 5;
+		add(scoreText);
 	}
 	
 	function placeEntity(name:String, data:Xml):Void
@@ -89,6 +136,9 @@ class PlayState extends FlxState
 			{
 				p.enableHumanControl();
 				FlxG.camera.follow(p);
+				player = p;
+				add(new Pointer(x, y, player));
+				
 			}else{
 				if (records.exists(id))
 				{
@@ -102,7 +152,11 @@ class PlayState extends FlxState
 			var b  = new BallotBox(x, y);
 			goal = b;
 			add(b);
-		}	
+		}else if (name == "anemone")
+		{
+			var a  = new Anemone(x, y);
+			hostileDecorations.add(a);
+		}
 	}
 	
 	function saveReplay()
@@ -130,9 +184,16 @@ class PlayState extends FlxState
 		super.update(elapsed);
 		
 		FlxG.overlap(playables, goal, onPlayableReachGoal);
-		FlxG.collide(player, walls);
+		FlxG.overlap(player, hostileDecorations, onPlayableTouchHostile);
+		FlxG.overlap(player, playables, onPlayableTouchHostile);
+		FlxG.collide(playables, walls);
 		checkInputs();
 		
+	}
+	
+	function onPlayableTouchHostile(playable:Character, g:FlxSprite)
+	{
+		die();
 	}
 	
 	function onPlayableReachGoal(playable:Character,g:FlxSprite) 
@@ -145,12 +206,27 @@ class PlayState extends FlxState
 			if (currentEntityId + 1 == entityIncarnationOrder.length)
 			{
 				trace("SUCCESS");
-				FlxG.vcr.stopRecording(false);
-				recording = false;
+				stopRecording();
 				success();
-			}else
+			}else{
+				setScore(score+10);
 				incarnateNextEntity();
+			}
+		}else{
+			playable.goBackToStartingPoint(walls);
 		}
+	}
+	
+	function setScore(value:Int) 
+	{
+		score = value;
+		scoreText.text = "SCORE\n" + StringTools.lpad(Std.string(score), "0", 5);
+	}
+	
+	function stopRecording()
+	{		
+		FlxG.vcr.stopRecording(false);
+		recording = false;
 	}
 	
 	function success() 
@@ -164,7 +240,53 @@ class PlayState extends FlxState
 			incarnateNextEntity();
 	}
 	
-
+	
+	function die()
+	{
+		lives--;
+		explode(player);
+		explode(currentHeart);
+		stopRecording();
+		FlxG.camera.shake(0.05, .2);
+		
+		if (lives == 0)
+		{
+			//Gameover
+			new FlxTimer().start(1, function(_)
+			{
+				FlxG.camera.fade(FlxColor.BLACK, .2, false, function()
+				{
+					FlxG.switchState(new LoseState());
+				});
+			});
+		}else
+		{	
+			new FlxTimer().start(1, function(_)
+			{
+				FlxG.camera.fade(FlxColor.BLACK, .2, false, function()
+				{
+					FlxG.resetState();
+				});
+			});
+		}
+		
+	}
+	
+	function explode(target:FlxObject)
+	{
+		var explosionEmitter:FlxEmitter = explosionsEmitters.getFirstAvailable(FlxEmitter);
+		if (explosionEmitter == null)
+		{
+			explosionEmitter = new FlxEmitter();
+			explosionEmitter.makeParticles(2, 2, FlxColor.RED);
+			explosionEmitter.lifespan.set(0.1, 0.5);
+			explosionEmitter.speed.set(300);
+		}
+		explosionEmitter.setPosition(target.x, target.y);
+		explosionsEmitters.add(explosionEmitter);
+		explosionEmitter.start();
+		target.kill();
+	}
 	
 	function emitLove(character:Character)
 	{

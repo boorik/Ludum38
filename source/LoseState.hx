@@ -7,18 +7,23 @@ import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.math.FlxMath;
 
-class WinState extends FlxState
+class LoseState extends FlxState
 {
 	override public function create():Void
 	{
 		super.create();
-		var t = new FlxText(0, 0, 0, "YOU WIN !!!", 22);
+		var t = new FlxText(0, 0, 0, "YOU LOSE!!!", 22);
 		t.screenCenter();
 		add(t);
 		
 		var t = new FlxText(0, 0, 0, "SCORE : " + StringTools.lpad(Std.string(PlayState.score), "0", 5), 12);
 		t.x = (FlxG.width / 2) - (t.width / 2);
 		t.y = FlxG.height*2/3;
+		add(t);
+		
+		var t = new FlxText(0, 0, 0, "Press any key to start playing", 12);
+		t.x = (FlxG.width / 2) - (t.width / 2);
+		t.y = FlxG.height*3/4;
 		add(t);
 	}
 

@@ -3,7 +3,10 @@ package;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.effects.particles.FlxEmitter;
+import flixel.math.FlxPoint;
 import flixel.system.FlxAssets.FlxGraphicAsset;
+import flixel.tile.FlxTilemap;
+import flixel.util.FlxPath;
 
 /**
  * ...
@@ -20,9 +23,12 @@ class Character extends FlxSprite
 	
 	private var replay:MyReplay;
 	public var isHumanControlled:Bool;
+	private var startingPoint:FlxPoint;
 	public function new(?X:Float=0, ?Y:Float=0, ?graphic:FlxGraphicAsset="assets/images/stickman.png") 
 	{
 		super(X, Y);
+		
+		startingPoint = new FlxPoint(X, Y);
 		
 		loadGraphic(graphic, true, 32, 32);
 		animation.add("idle", [4, 5, 6, 7]);
@@ -30,6 +36,8 @@ class Character extends FlxSprite
 		animation.add("walk_left", [0, 1, 2, 3], 30, true, true);
 		animation.play("idle");
 		acceleration.y = GRAVITY;	
+		
+		immovable = false;
 	}
 	
 	public function enableHumanControl()
@@ -50,6 +58,23 @@ class Character extends FlxSprite
 		replay.rewind();
 	}
 	
+	public function goBackToStartingPoint(map:FlxTilemap)
+	{
+		acceleration.y = 0;
+		startingPoint.add(width / 2, height / 2);
+		var pathPoints:Array<FlxPoint> = null;
+		try{
+			pathPoints = map.findPath(FlxPoint.get(x + width / 2, y + height / 2), startingPoint);
+		}catch (e:Dynamic){
+			trace(e);
+		}
+		if (pathPoints != null)
+		{
+			path = new FlxPath();
+			path.start(pathPoints);
+		}
+	}
+	
 	override public function update(elapsed:Float):Void
 	{
 		if (replay != null)
@@ -61,8 +86,17 @@ class Character extends FlxSprite
 		}
 		if(keys != null)
 			checkInputs();
-		animate();
+			
+		if (path != null && !path.active)
+		{
+			acceleration.y = GRAVITY;
+			path.destroy();
+			path = null;
+			this.immovable = false;
+		}
+			
 		super.update(elapsed);
+		animate();
 	}
 	
 	function checkInputs() 
@@ -94,5 +128,15 @@ class Character extends FlxSprite
 		else
 			animation.play("idle");
 	}
+	/*
+	override public function draw():Void
+	{
+		super.draw();
+		if (path != null && !path.finished)
+		{
+			drawDebug();
+		}
+	}
+	*/
 	
 }
