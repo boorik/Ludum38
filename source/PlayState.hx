@@ -230,11 +230,7 @@ class PlayState extends FlxState
 		FlxG.overlap(playables, goal, onPlayableReachGoal);
 		FlxG.overlap(player, hostileDecorations, onPlayableTouchHostile);
 		FlxG.overlap(player, playables, onPlayableTouchHostile);
-		FlxG.collide(playables, walls);
-		
-		if (FlxG.keys.pressed.R)
-			FlxG.switchState(new WinState());
-		
+		FlxG.collide(playables, walls);		
 	}
 	
 	function onPlayableTouchHostile(playable:Character, g:FlxSprite)
