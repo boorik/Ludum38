@@ -32,9 +32,12 @@ class PlayState extends FlxState
 	static var lives:Int = 3;
 	static public var score:Int = 0;
 	static var currentEntityId:Int = 0;
-	static var entityIncarnationOrder:Array<Int> = [2,4,28,24,25,27,23,3,17,21,22,20,19,18,0,1
+	static var entityIncarnationOrder:Array<Int> = [
 	];
+	static var incarnationOrderInited:Bool;
+	static public var remainingTime:Float;
 	var scoreText:flixel.text.FlxText;
+	var timerText:flixel.text.FlxText;
 	
 	static public function resetRecords()
 	{
@@ -43,6 +46,7 @@ class PlayState extends FlxState
 		currentEntityId = 0;
 		lives = 3;
 		score = 0;
+		remainingTime = 300;
 	}
 	
 	override public function create():Void
@@ -69,7 +73,7 @@ class PlayState extends FlxState
 		
 		
 		map.loadEntities(placeEntity, "entities");
-		
+		incarnationOrderInited = true;
 		loveEmitters = new FlxTypedGroup<FlxEmitter>();
 		add(loveEmitters);
 		
@@ -79,6 +83,7 @@ class PlayState extends FlxState
 		
 		createLiveHud();
 		createScoreHud();
+		createTimerHud();
 		
 		if (!recording)
 		{
@@ -105,13 +110,21 @@ class PlayState extends FlxState
 		add(scoreText);
 	}
 	
+	function createTimerHud()
+	{
+		timerText = new flixel.text.FlxText(0, 0, 0, "TIME : " + Std.int(remainingTime), 12);
+		timerText.scrollFactor.set(0, 0);
+		timerText.x = (FlxG.width-timerText.width)/2;
+		add(timerText);
+	}
+	
 	function placeEntity(name:String, data:Xml):Void
 	{
 		var x:Int = Std.parseInt(data.get("x"));
 		var y:Int = Std.parseInt(data.get("y"));
 		var id:Int = Std.parseInt(data.get("id"));
 		
-		var current = entityIncarnationOrder[currentEntityId];
+		
 	
 		trace(name.substr(0, 2));
 		if (name.substr(0,2) == "pl")
@@ -128,10 +141,16 @@ class PlayState extends FlxState
 			{
 				p = new Shrimp(x, y);
 
+			}else if (name == "pl_crab")
+			{
+				p = new Crab(x, y);
 			}
 			playables.add(p);
 		
-			
+			if (!incarnationOrderInited)
+				entityIncarnationOrder.push(id);
+				
+			var current = entityIncarnationOrder[currentEntityId];
 			if (id == current)
 			{
 				p.enableHumanControl();
@@ -182,6 +201,12 @@ class PlayState extends FlxState
 	override public function update(elapsed:Float):Void
 	{
 		super.update(elapsed);
+		
+		remainingTime -= elapsed;
+		timerText.text = "TIME : " + Std.int(remainingTime);
+		
+		if (remainingTime <= 0)
+			gameover("time is up!");
 		
 		FlxG.overlap(playables, goal, onPlayableReachGoal);
 		FlxG.overlap(player, hostileDecorations, onPlayableTouchHostile);
@@ -251,14 +276,7 @@ class PlayState extends FlxState
 		
 		if (lives == 0)
 		{
-			//Gameover
-			new FlxTimer().start(1, function(_)
-			{
-				FlxG.camera.fade(FlxColor.BLACK, .2, false, function()
-				{
-					FlxG.switchState(new LoseState());
-				});
-			});
+			gameover();
 		}else
 		{	
 			new FlxTimer().start(1, function(_)
@@ -270,6 +288,18 @@ class PlayState extends FlxState
 			});
 		}
 		
+	}
+	
+	function gameover(reason:String = "no life remaining")
+	{
+		LoseState.reason = reason;
+		new FlxTimer().start(1, function(_)
+		{
+			FlxG.camera.fade(FlxColor.BLACK, .2, false, function()
+			{
+				FlxG.switchState(new LoseState());
+			});
+		});
 	}
 	
 	function explode(target:FlxObject)

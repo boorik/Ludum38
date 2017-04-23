@@ -29,12 +29,14 @@ class Character extends FlxSprite
 		super(X, Y);
 		
 		startingPoint = new FlxPoint(X, Y);
-		
-		loadGraphic(graphic, true, 32, 32);
-		animation.add("idle", [4, 5, 6, 7]);
-		animation.add("walk_right", [0, 1, 2, 3]);
-		animation.add("walk_left", [0, 1, 2, 3], 30, true, true);
-		animation.play("idle");
+		if (graphic != null)
+		{
+			loadGraphic(graphic, true, 32, 32);
+			animation.add("idle", [4, 5, 6, 7]);
+			animation.add("walk_right", [0, 1, 2, 3]);
+			animation.add("walk_left", [0, 1, 2, 3], 30, true, true);
+			animation.play("idle");
+		}
 		acceleration.y = GRAVITY;	
 		
 		immovable = false;

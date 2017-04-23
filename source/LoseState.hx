@@ -9,10 +9,11 @@ import flixel.math.FlxMath;
 
 class LoseState extends FlxState
 {
+	static public var reason:String;
 	override public function create():Void
 	{
 		super.create();
-		var t = new FlxText(0, 0, 0, "YOU LOSE!!!", 22);
+		var t = new FlxText(0, 0, 0, "YOU LOSE, "+reason, 22);
 		t.screenCenter();
 		add(t);
 		
