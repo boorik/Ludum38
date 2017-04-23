@@ -12,7 +12,11 @@ import flixel.util.FlxPath;
  * ...
  * @author vincent blanchet
  */
-
+enum State {
+	WAY_TO_VOTE;
+	VOTED;
+	DEAD;
+}
 class Character extends FlxSprite
 {
 	static inline var GRAVITY = 5000;
@@ -21,9 +25,13 @@ class Character extends FlxSprite
 	public var mouse:flixel.input.mouse.FlxMouse;
 	public var emitter:FlxEmitter;
 	
+	public var ballotPaper:BallotPaper;
 	private var replay:MyReplay;
 	public var isHumanControlled:Bool;
 	private var startingPoint:FlxPoint;
+	public var maxAcceleration:FlxPoint;
+	public var state:State = WAY_TO_VOTE;
+	
 	public function new(?X:Float=0, ?Y:Float=0, ?graphic:FlxGraphicAsset="assets/images/stickman.png") 
 	{
 		super(X, Y);
@@ -31,13 +39,18 @@ class Character extends FlxSprite
 		startingPoint = new FlxPoint(X, Y);
 		if (graphic != null)
 		{
+			trace("Graphic not null");
 			loadGraphic(graphic, true, 32, 32);
 			animation.add("idle", [4, 5, 6, 7]);
 			animation.add("walk_right", [0, 1, 2, 3]);
 			animation.add("walk_left", [0, 1, 2, 3], 30, true, true);
 			animation.play("idle");
 		}
-		acceleration.y = GRAVITY;	
+		maxAcceleration = FlxPoint.get(0, GRAVITY);
+		acceleration.y = maxAcceleration.y;	
+		
+		maxVelocity.x = 80;
+		maxVelocity.y = 80;
 		
 		immovable = false;
 	}
@@ -91,7 +104,7 @@ class Character extends FlxSprite
 			
 		if (path != null && !path.active)
 		{
-			acceleration.y = GRAVITY;
+			acceleration.y = maxAcceleration.y;
 			path.destroy();
 			path = null;
 			this.immovable = false;
@@ -107,17 +120,17 @@ class Character extends FlxSprite
 		velocity.y = 0;
 		if (keys.pressed.LEFT)
 		{
-			velocity.x -= 80;
+			velocity.x -= maxVelocity.x;
 		}else if (keys.pressed.RIGHT)
 		{
-			velocity.x += 80;
+			velocity.x += maxVelocity.x;
 		}
 		if (keys.pressed.UP)
 		{
-			velocity.y -= 80;
+			velocity.y -= maxVelocity.y;
 		}else if (keys.pressed.DOWN)
 		{
-			velocity.y += 80;
+			velocity.y += maxVelocity.y;
 		}
 	}
 	

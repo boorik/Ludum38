@@ -38,6 +38,8 @@ class PlayState extends FlxState
 	static public var remainingTime:Float;
 	var scoreText:flixel.text.FlxText;
 	var timerText:flixel.text.FlxText;
+	var votedText:flixel.text.FlxText;
+	var dead:Bool;
 	
 	static public function resetRecords()
 	{
@@ -46,7 +48,7 @@ class PlayState extends FlxState
 		currentEntityId = 0;
 		lives = 3;
 		score = 0;
-		remainingTime = 300;
+		remainingTime = 540;
 	}
 	
 	override public function create():Void
@@ -61,6 +63,8 @@ class PlayState extends FlxState
 		
 		walls = map.loadTilemap(AssetPaths.tileset__png, 32, 32, "walls");
 		walls.setTileProperties(2, FlxObject.NONE);
+		for (t in 5...25)
+			walls.setTileProperties(t, FlxObject.NONE);
 		walls.follow();
 		add(walls);
 		
@@ -84,6 +88,7 @@ class PlayState extends FlxState
 		createLiveHud();
 		createScoreHud();
 		createTimerHud();
+		createVotedHud();
 		
 		if (!recording)
 		{
@@ -96,7 +101,7 @@ class PlayState extends FlxState
 	{
 		for (i in 0...lives)
 		{
-			currentHeart= new FlxSprite(10 + i * 35, 10, AssetPaths.heart__png);
+			currentHeart= new BallotPaper(10 + i * 35, 10,null);
 			currentHeart.scrollFactor.set(0, 0);
 			add(currentHeart);
 		}
@@ -116,6 +121,13 @@ class PlayState extends FlxState
 		timerText.scrollFactor.set(0, 0);
 		timerText.x = (FlxG.width-timerText.width)/2;
 		add(timerText);
+	}
+	
+	function createVotedHud()
+	{
+		votedText = new flixel.text.FlxText(10, 47, 0, "VOTED : " +currentEntityId+" / "+entityIncarnationOrder.length, 12);
+		votedText.scrollFactor.set(0, 0);
+		add(votedText);
 	}
 	
 	function placeEntity(name:String, data:Xml):Void
@@ -144,7 +156,15 @@ class PlayState extends FlxState
 			}else if (name == "pl_crab")
 			{
 				p = new Crab(x, y);
+			}else if (name == "pl_crabKing")
+			{
+				p = new CrabKing(x, y);
+			}else if (name == "pl_greyFish")
+			{
+				p = new GreyFish(x, y);
 			}
+			p.ballotPaper = new BallotPaper(p.x, p.y, p);
+			add(p.ballotPaper);
 			playables.add(p);
 		
 			if (!incarnationOrderInited)
@@ -195,7 +215,6 @@ class PlayState extends FlxState
 		saveReplay();
 		currentEntityId++;
 		FlxG.resetState();
-		//destroy();
 	}
 
 	override public function update(elapsed:Float):Void
@@ -212,33 +231,48 @@ class PlayState extends FlxState
 		FlxG.overlap(player, hostileDecorations, onPlayableTouchHostile);
 		FlxG.overlap(player, playables, onPlayableTouchHostile);
 		FlxG.collide(playables, walls);
-		checkInputs();
+		
+		if (FlxG.keys.pressed.R)
+			FlxG.switchState(new WinState());
 		
 	}
 	
 	function onPlayableTouchHostile(playable:Character, g:FlxSprite)
 	{
-		die();
+		if(playable.state == Character.State.WAY_TO_VOTE)
+			die();
 	}
 	
 	function onPlayableReachGoal(playable:Character,g:FlxSprite) 
 	{
-		if (playable.isHumanControlled)
+		if (playable.state == Character.State.WAY_TO_VOTE && !dead)
 		{
-			/**
-			 * check for win or incarnate next fish
-			 */
-			if (currentEntityId + 1 == entityIncarnationOrder.length)
+			playable.ballotPaper.validate();
+			playable.state =Character.State.VOTED;
+			
+			if (playable.isHumanControlled)
 			{
-				trace("SUCCESS");
-				stopRecording();
-				success();
+				/**
+				 * check for win or incarnate next fish
+				 */
+				if (currentEntityId + 1 == entityIncarnationOrder.length)
+				{
+					trace("SUCCESS");
+					stopRecording();
+					success();
+				}else{
+					setScore(score+10);
+					new FlxTimer().start(1, function(_)
+					{
+						FlxG.camera.fade(FlxColor.BLACK, .2, false, function()
+						{
+							incarnateNextEntity();
+						});
+					});
+				}
 			}else{
-				setScore(score+10);
-				incarnateNextEntity();
+				playable.goBackToStartingPoint(walls);
 			}
-		}else{
-			playable.goBackToStartingPoint(walls);
 		}
 	}
 	
@@ -259,17 +293,16 @@ class PlayState extends FlxState
 		FlxG.switchState(new WinState());
 	}
 	
-	function checkInputs() 
-	{
-		if (FlxG.keys.pressed.R)
-			incarnateNextEntity();
-	}
-	
 	
 	function die()
 	{
+		if (dead)
+			return;
+			
+		dead = true;
 		lives--;
-		explode(player);
+		FlxG.sound.play(AssetPaths.explosion__ogg);
+		explode(player.ballotPaper);
 		explode(currentHeart);
 		stopRecording();
 		FlxG.camera.shake(0.05, .2);
@@ -290,7 +323,7 @@ class PlayState extends FlxState
 		
 	}
 	
-	function gameover(reason:String = "no life remaining")
+	function gameover(reason:String = "no ballot paper remaining")
 	{
 		LoseState.reason = reason;
 		new FlxTimer().start(1, function(_)
@@ -308,7 +341,7 @@ class PlayState extends FlxState
 		if (explosionEmitter == null)
 		{
 			explosionEmitter = new FlxEmitter();
-			explosionEmitter.makeParticles(2, 2, FlxColor.RED);
+			explosionEmitter.makeParticles(2, 2, FlxColor.WHITE);
 			explosionEmitter.lifespan.set(0.1, 0.5);
 			explosionEmitter.speed.set(300);
 		}

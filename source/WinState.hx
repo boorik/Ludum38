@@ -12,14 +12,27 @@ class WinState extends FlxState
 	override public function create():Void
 	{
 		super.create();
+		
+		PlayState.remainingTime = Std.int(PlayState.remainingTime);
+		
 		var t = new FlxText(0, 0, 0, "YOU WIN !!!", 22);
 		t.screenCenter();
 		add(t);
 		
-		var t = new FlxText(0, 0, 0, "SCORE : " + StringTools.lpad(Std.string(PlayState.score), "0", 5), 12);
-		t.x = (FlxG.width / 2) - (t.width / 2);
-		t.y = FlxG.height*2/3;
-		add(t);
+		var tr = new FlxText(0, 0, 0, "TIME REMAINING : " + PlayState.remainingTime, 12);
+		tr.x = (FlxG.width / 2) - (tr.width / 2);
+		tr.y = FlxG.height*2/3;
+		add(tr);
+		
+		var s = new FlxText(0, 0, 0, "SCORE : " + PlayState.score , 12);
+		s.x = (FlxG.width / 2) - (s.width / 2);
+		s.y = tr.y+tr.height+10;
+		add(s);
+		
+		var ts = new FlxText(0, 0, 0, "TOTAL SCORE : " + PlayState.remainingTime+" + "+PlayState.score+" = "+(PlayState.remainingTime+PlayState.score), 12);
+		ts.x = (FlxG.width / 2) - (ts.width / 2);
+		ts.y = s.y+s.height+30;
+		add(ts);
 	}
 
 	override public function update(elapsed:Float):Void
